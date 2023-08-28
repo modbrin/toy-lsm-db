@@ -2,8 +2,9 @@ use std::mem;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MemTable {
-    entries: Vec<MemTableEntry>, //TODO: replace with skip list
-    data_size: usize,
+    // Vector of entries sorted by key
+    pub entries: Vec<MemTableEntry>, //TODO: replace with skip list
+    pub data_size: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -28,7 +29,7 @@ impl MemTable {
             .binary_search_by_key(&key.as_ref(), |e| e.key.as_slice())
     }
 
-    pub fn put(&mut self, key: Vec<u8>, value: Vec<u8>, timestamp: u128) {
+    pub fn put(&mut self, timestamp: u128, key: Vec<u8>, value: Vec<u8>) {
         match self.get_index(&key) {
             Ok(idx) => {
                 let elem = &mut self.entries[idx];
@@ -54,7 +55,7 @@ impl MemTable {
         }
     }
 
-    pub fn delete(&mut self, key: Vec<u8>, timestamp: u128) {
+    pub fn delete(&mut self, timestamp: u128, key: Vec<u8>) {
         match self.get_index(&key) {
             Ok(idx) => {
                 let elem = &mut self.entries[idx];
@@ -81,6 +82,10 @@ impl MemTable {
             .ok()
             .map(|idx| &self.entries[idx])
     }
+
+    pub fn size(&self) -> usize {
+        self.data_size
+    }
 }
 
 #[cfg(test)]
@@ -92,7 +97,7 @@ mod tests {
         let mut memtable = MemTable::new();
         assert_eq!(memtable.get(vec![1, 1, 1]), None);
 
-        memtable.put(vec![1, 1, 1], vec![0, 0, 0], 1);
+        memtable.put(1, vec![1, 1, 1], vec![0, 0, 0]);
         assert_eq!(memtable.data_size, 70);
         assert_eq!(
             memtable.get(vec![1, 1, 1]),
@@ -103,7 +108,7 @@ mod tests {
             })
         );
 
-        memtable.put(vec![3, 3, 3], vec![0, 1, 0, 1], 2);
+        memtable.put(2, vec![3, 3, 3], vec![0, 1, 0, 1]);
         assert_eq!(memtable.data_size, 141);
         assert_eq!(
             memtable.get(vec![3, 3, 3]),
@@ -114,7 +119,7 @@ mod tests {
             })
         );
 
-        memtable.put(vec![2, 2, 2], vec![1, 0, 1, 0, 1], 3);
+        memtable.put(3, vec![2, 2, 2], vec![1, 0, 1, 0, 1]);
         assert_eq!(memtable.data_size, 213);
         assert_eq!(
             memtable.get(vec![2, 2, 2]),
