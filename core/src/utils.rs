@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
-use std::{fs, io};
+use std::{fs, io, mem};
 
 pub fn scan_dir(path: impl AsRef<Path>, exts: &[&str]) -> io::Result<Vec<PathBuf>> {
     let mut out = Vec::new();
@@ -76,7 +76,7 @@ impl CommonBinaryFormat {
         reader.read_exact(&mut tombstone)?;
         let is_delete = tombstone[0] != 0;
 
-        let mut size_buffer = [0; 8];
+        let mut size_buffer = [0; mem::size_of::<usize>()];
         reader.read_exact(&mut size_buffer)?;
         let key_size = usize::from_le_bytes(size_buffer);
 

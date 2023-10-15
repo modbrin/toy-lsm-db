@@ -41,12 +41,14 @@ impl WriteAheadLog {
     }
 
     pub fn load_dir(dir: impl AsRef<Path>) -> io::Result<(Self, MemTable)> {
+        let dir = dir.as_ref();
+        fs::create_dir_all(dir)?;
+        let existing_wals: Vec<_> = utils::scan_dir(dir, &["wal"])?.into_iter().sorted().collect();
         let mut memtable = MemTable::new();
-        let mut new_wal = WriteAheadLog::new(&dir)?;
-
+        let mut new_wal = WriteAheadLog::new(dir)?;
         let mut remove_files = Vec::new();
 
-        for path in utils::scan_dir(dir, &["wal"])?.into_iter().sorted() {
+        for path in existing_wals {
             for elem in Self::load(&path)?.into_iter()? {
                 if let Some(value) = elem.value {
                     new_wal.put(elem.timestamp, &elem.key, &value)?;
@@ -131,12 +133,17 @@ impl Iterator for WriteAheadLogIterator {
 mod tests {
     use crate::wal::{WriteAheadLog, WriteAheadLogEntry, WriteAheadLogIterator};
     use std::fs;
+    use std::path::PathBuf;
+    use crate::utils::scan_dir;
 
     #[test]
     fn load_cycle() {
-        let test_dir = "./test_data";
-        fs::remove_dir_all(test_dir).unwrap();
+        let test_dir = &PathBuf::from("./tests/load_cycle");
+        if test_dir.exists() {
+            fs::remove_dir_all(test_dir).unwrap();
+        }
         let mut wal = WriteAheadLog::new(test_dir).unwrap();
+        assert!(wal.path.exists());
         wal.put(1, vec![0, 0, 1], vec![2, 2]).unwrap();
         wal.put(3, vec![0, 1, 0], vec![3, 3, 3]).unwrap();
         wal.put(4, vec![0, 1, 1], vec![4, 4, 4, 4]).unwrap();
@@ -196,5 +203,33 @@ mod tests {
             ],
             elems
         );
+    }
+
+    #[test]
+    fn loads_dir() {
+        let test_dir = &PathBuf::from("./tests/loads_dir");
+        if test_dir.exists() {
+            fs::remove_dir_all(test_dir).unwrap();
+        }
+        let mut wal = WriteAheadLog::new(test_dir).unwrap();
+        wal.put(1, vec![0, 0, 1], vec![1, 10]).unwrap();
+        wal.put(3, vec![0, 1, 0], vec![2, 20]).unwrap();
+        drop(wal);
+
+        let mut wal = WriteAheadLog::new(test_dir).unwrap();
+        wal.put(3, vec![0, 1, 1], vec![3, 10]).unwrap();
+        drop(wal);
+
+        let mut wal = WriteAheadLog::new(test_dir).unwrap();
+        wal.put(4, vec![1, 0, 0], vec![4, 20]).unwrap();
+        wal.put(3, vec![1, 0, 1], vec![5, 10]).unwrap();
+        wal.put(4, vec![1, 1, 0], vec![6, 20]).unwrap();
+        drop(wal);
+
+        assert_eq!(scan_dir(test_dir, &["wal"]).unwrap().len(), 3);
+
+        let (dir_wal, dir_memtable) = WriteAheadLog::load_dir(test_dir).unwrap();
+        assert!(dir_wal.path.exists());
+        assert_eq!(dir_memtable.entries.len(), 6);
     }
 }

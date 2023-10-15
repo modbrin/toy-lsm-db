@@ -130,7 +130,7 @@ mod tests {
             })
         );
 
-        memtable.delete(vec![2, 2, 2], 4);
+        memtable.delete(4, vec![2, 2, 2]);
         assert_eq!(memtable.data_size, 208);
         assert_eq!(
             memtable.get(vec![2, 2, 2]),
@@ -141,7 +141,7 @@ mod tests {
             })
         );
 
-        memtable.delete(vec![1, 1, 1], 5);
+        memtable.delete(5, vec![1, 1, 1]);
         assert_eq!(memtable.data_size, 205);
         assert_eq!(
             memtable.get(vec![1, 1, 1]),
@@ -152,7 +152,7 @@ mod tests {
             })
         );
 
-        memtable.delete(vec![3, 3, 3], 6);
+        memtable.delete(6, vec![3, 3, 3]);
         assert_eq!(memtable.data_size, 201);
         assert_eq!(
             memtable.get(vec![3, 3, 3]),
